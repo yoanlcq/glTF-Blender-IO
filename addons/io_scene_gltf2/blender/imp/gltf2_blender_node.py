@@ -34,6 +34,51 @@ class BlenderNode():
         pynode.blender_object = ""
         pynode.parent = parent
 
+        # Detect all possible type of node
+        pynode.types = []
+        if pynode.mesh is not None:
+            pynode.types.append("mesh")
+        if pynode.camera is not None:
+            pynode.types.append("camera")
+        if pynode.is_joint:
+            pynode.types.append("joint")
+        if pynode.extensions is not None:
+            if 'KHR_lights_punctual' in pynode.extensions.keys():
+                pynode.types.append("KHR_lights_punctual")
+
+        node_type = "SIMPLE" # 0 or 1 type
+        if len(pynode.types) > 1:
+            if "joint" not in pynode.types:
+                node_type = "MULTIPLE_OBJECT"
+            else:
+                node_type = "MULTIPLE_RIG"
+
+        # If node type is MULTIPLE_OBJECT
+        # We have to create a parent empty
+        # and all different types will be children of this empty
+        parent_obj = None
+        if node_type == "MULTIPLE_OBJECT":
+            if pynode.name:
+                gltf.log.info("Blender create ParentEmpty node " + pynode.name)
+                parent_obj = bpy.data.objects.new(pynode.name, None)
+            else:
+                gltf.log.info("Blender create ParentEmpty node")
+                parent_obj = bpy.data.objects.new("Node", None)
+            parent_obj.rotation_mode = 'QUATERNION'
+            if bpy.app.version < (2, 80, 0):
+                bpy.data.scenes[gltf.blender_scene].objects.link(parent_obj)
+            else:
+                bpy.data.scenes[gltf.blender_scene].collection.objects.link(parent_obj)
+            # Transforms apply only if this mesh is not skinned
+            # See implementation node of gltf2 specification
+            if not (pynode.mesh and pynode.skin is not None):
+                BlenderNode.set_transforms(gltf, node_idx, pynode, parent_obj, parent)
+            pynode.blender_object = parent_obj.name
+            BlenderNode.set_parent(gltf, pynode, parent_obj, parent)
+            if "KHR_lights_punctual" in pynode.types:
+                pynode.correction_needed = True
+
+
         if pynode.mesh is not None:
 
             instance = False
@@ -78,21 +123,25 @@ class BlenderNode():
             else:
                 bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
 
-            # Transforms apply only if this mesh is not skinned
-            # See implementation node of gltf2 specification
-            if not (pynode.mesh and pynode.skin is not None):
-                BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)
-            pynode.blender_object = obj.name
-            BlenderNode.set_parent(gltf, pynode, obj, parent)
+            if node_type == "SIMPLE":
+                # Transforms apply only if this mesh is not skinned
+                # See implementation node of gltf2 specification
+                if not (pynode.mesh and pynode.skin is not None):
+                    BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)
+                pynode.blender_object = obj.name
+                BlenderNode.set_parent(gltf, pynode, obj, parent)
 
-            if instance == False:
-                BlenderMesh.set_mesh(gltf, gltf.data.meshes[pynode.mesh], mesh, obj)
+                if instance == False:
+                    BlenderMesh.set_mesh(gltf, gltf.data.meshes[pynode.mesh], mesh, obj)
 
-            if pynode.children:
-                for child_idx in pynode.children:
-                    BlenderNode.create(gltf, child_idx, node_idx)
+                if pynode.children:
+                    for child_idx in pynode.children:
+                        BlenderNode.create(gltf, child_idx, node_idx)
 
-            return
+                return
+            elif node_type == "MULTIPLE_OBJECT":
+                # make this object child of parent_obj
+                obj.parent = bpy.data.objects[parent_obj.name]
 
         if pynode.camera is not None:
             if pynode.name:
@@ -100,11 +149,15 @@ class BlenderNode():
             else:
                 gltf.log.info("Blender create Camera node")
             obj = BlenderCamera.create(gltf, pynode.camera)
-            BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)  # TODO default rotation of cameras ?
-            pynode.blender_object = obj.name
-            BlenderNode.set_parent(gltf, pynode, obj, parent)
+            if node_type == "SIMPLE":
+                BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)  # TODO default rotation of cameras ?
+                pynode.blender_object = obj.name
+                BlenderNode.set_parent(gltf, pynode, obj, parent)
 
-            return
+                return
+            elif node_type == "MULTIPLE_OBJECT":
+                # make this object child of parent_obj
+                obj.parent = bpy.data.objects[parent_obj.name]
 
         if pynode.is_joint:
             if pynode.name:
@@ -127,18 +180,27 @@ class BlenderNode():
             if 'KHR_lights_punctual' in pynode.extensions.keys():
                 obj = BlenderLight.create(gltf, pynode.extensions['KHR_lights_punctual']['light'])
                 obj.rotation_mode = 'QUATERNION'
-                BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent, correction=True)
-                pynode.blender_object = obj.name
-                pynode.correction_needed = True
-                BlenderNode.set_parent(gltf, pynode, obj, parent)
+                if node_type == "SIMPLE":
+                    BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent, correction=True)
+                    pynode.blender_object = obj.name
+                    pynode.correction_needed = True
+                    BlenderNode.set_parent(gltf, pynode, obj, parent)
 
-                if pynode.children:
-                    for child_idx in pynode.children:
-                        BlenderNode.create(gltf, child_idx, node_idx)
+                    if pynode.children:
+                        for child_idx in pynode.children:
+                            BlenderNode.create(gltf, child_idx, node_idx)
 
-                return
+                    return
+                elif node_type == "MULTIPLE_OBJECT":
+                    obj.parent = bpy.data.objects[parent_obj.name]
 
-        # No mesh, no camera, no light. For now, create empty #TODO
+        if node_type == "MULTIPLE_OBJECT":
+            if pynode.children:
+                for child_idx in pynode.children:
+                    BlenderNode.create(gltf, child_idx, node_idx)
+            return
+
+        # No mesh, no camera, no light. For now, create empty
 
         if pynode.name:
             gltf.log.info("Blender create Empty node " + pynode.name)
