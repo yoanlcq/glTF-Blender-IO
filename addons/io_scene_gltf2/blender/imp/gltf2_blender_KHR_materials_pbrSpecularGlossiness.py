@@ -48,10 +48,10 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
         diffuse.location = 0, 0
         glossy = node_tree.nodes.new('ShaderNodeBsdfGlossy')
         glossy.location = 0, 100
-        mix = node_tree.nodes.new('ShaderNodeMixShader')
-        mix.location = 500, 0
+        add = node_tree.nodes.new('ShaderNodeAddShader')
+        add.location = 500, 0
 
-        glossy.inputs[1].default_value = 1 - pbrSG['glossinessFactor']
+
 
         if pbrSG['diffuse_type'] == gltf.SIMPLE:
             if not vertex_color:
@@ -251,6 +251,8 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
 
         if pbrSG['specgloss_type'] == gltf.SIMPLE:
 
+            glossy.inputs[1].default_value = 1 - pbrSG['glossinessFactor']
+
             combine = node_tree.nodes.new('ShaderNodeCombineRGB')
             combine.inputs[0].default_value = pbrSG['specularFactor'][0]
             combine.inputs[1].default_value = pbrSG['specularFactor'][1]
@@ -270,7 +272,7 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
                         gltf.data.textures[pbrSG['specularGlossinessTexture']['index']].source
                     ].blender_image_name
                 ]
-            spec_text.color_space = 'NONE'
+            spec_text.color_space = 'COLOR'
             spec_text.location = -500, 0
 
             spec_mapping = node_tree.nodes.new('ShaderNodeMapping')
@@ -286,7 +288,7 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
 
             # links
             node_tree.links.new(glossy.inputs[0], spec_text.outputs[0])
-            node_tree.links.new(mix.inputs[0], spec_text.outputs[1])
+            node_tree.links.new(add.inputs[0], spec_text.outputs[1])
 
             node_tree.links.new(spec_mapping.inputs[0], spec_uvmap.outputs[0])
             node_tree.links.new(spec_text.inputs[0], spec_mapping.outputs[0])
@@ -302,7 +304,7 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
                 spec_text.image = bpy.data.images[gltf.data.images[
                     gltf.data.textures[pbrSG['specularGlossinessTexture']['index']].source
                 ].blender_image_name]
-            spec_text.color_space = 'NONE'
+            spec_text.color_space = 'COLOR'
             spec_text.location = -1000, 0
 
             spec_math = node_tree.nodes.new('ShaderNodeMath')
@@ -324,14 +326,24 @@ class BlenderKHR_materials_pbrSpecularGlossiness():
             # links
 
             node_tree.links.new(spec_math.inputs[1], spec_text.outputs[0])
-            node_tree.links.new(mix.inputs[0], spec_text.outputs[1])
+            node_tree.links.new(add.inputs[0], spec_text.outputs[1])
             node_tree.links.new(glossy.inputs[1], spec_math.outputs[0])
             node_tree.links.new(glossy.inputs[0], spec_text.outputs[0])
 
             node_tree.links.new(spec_mapping.inputs[0], spec_uvmap.outputs[0])
             node_tree.links.new(spec_text.inputs[0], spec_mapping.outputs[0])
 
+        if pbrSG['specgloss_type'] != gltf.SIMPLE:
+
+            invert = node_tree.nodes.new('ShaderNodeInvert')
+            invert.location = -300, 0
+
+            node_tree.links.new(invert.inputs[1], spec_text.outputs[1])
+            node_tree.links.new(glossy.inputs[1], invert.outputs[0])
+            node_tree.links.new(diffuse.inputs[1], invert.outputs[0])
+
+
         # link node to output
-        node_tree.links.new(mix.inputs[2], diffuse.outputs[0])
-        node_tree.links.new(mix.inputs[1], glossy.outputs[0])
-        node_tree.links.new(output_node.inputs[0], mix.outputs[0])
+        node_tree.links.new(add.inputs[1], diffuse.outputs[0])
+        node_tree.links.new(add.inputs[0], glossy.outputs[0])
+        node_tree.links.new(output_node.inputs[0], add.outputs[0])
