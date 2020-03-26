@@ -45,7 +45,7 @@ def gather_image(
     mime_type = __gather_mime_type(blender_shader_sockets_or_texture_slots, export_settings)
     name = __gather_name(blender_shader_sockets_or_texture_slots, export_settings)
 
-    uri = __gather_uri(image_data, mime_type, name, export_settings)
+    uri = __gather_uri(blender_shader_sockets_or_texture_slots, image_data, mime_type, name, export_settings)
     buffer_view = __gather_buffer_view(image_data, mime_type, name, export_settings)
 
     image = __make_image(
@@ -124,7 +124,7 @@ def __gather_name(sockets_or_slots, export_settings):
 
 
 @cached
-def __gather_uri(image_data, mime_type, name, export_settings):
+def __gather_uri(sockets_or_slots, image_data, mime_type, name, export_settings):
     if export_settings[gltf2_blender_export_keys.FORMAT] == 'GLTF_SEPARATE':
         # as usual we just store the data in place instead of already resolving the references
         return gltf2_io_image_data.ImageData(
