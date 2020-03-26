@@ -61,6 +61,8 @@ class ImageData:
         if path[:2] == '//':
             path = path[2:]
 
+        path = path.replace('\\','/') # Replace backslashes on Windows; makes sense for an URI
+
         _, extension = os.path.splitext(path)
         extension = extension.lower()
         if extension not in [".jpeg", ".jpg", ".png"]:
