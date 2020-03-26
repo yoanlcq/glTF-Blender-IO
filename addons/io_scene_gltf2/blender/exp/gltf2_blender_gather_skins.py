@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,29 +21,33 @@ from io_scene_gltf2.io.com import gltf2_io_constants
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_accessors
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_joints
 from io_scene_gltf2.blender.com import gltf2_blender_math
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 @cached
-def gather_skin(blender_object, mesh_object, export_settings):
+def gather_skin(blender_object, export_settings):
     """
     Gather armatures, bones etc into a glTF2 skin object.
 
     :param blender_object: the object which may contain a skin
-    :param mesh_object: the mesh object to be deformed
     :param export_settings:
     :return: a glTF2 skin object
     """
     if not __filter_skin(blender_object, export_settings):
         return None
 
-    return gltf2_io.Skin(
+    skin = gltf2_io.Skin(
         extensions=__gather_extensions(blender_object, export_settings),
         extras=__gather_extras(blender_object, export_settings),
-        inverse_bind_matrices=__gather_inverse_bind_matrices(blender_object, mesh_object, export_settings),
+        inverse_bind_matrices=__gather_inverse_bind_matrices(blender_object, export_settings),
         joints=__gather_joints(blender_object, export_settings),
         name=__gather_name(blender_object, export_settings),
         skeleton=__gather_skeleton(blender_object, export_settings)
     )
+
+    export_user_extensions('gather_skin_hook', export_settings, skin, blender_object)
+
+    return skin
 
 
 def __filter_skin(blender_object, export_settings):
@@ -62,34 +66,41 @@ def __gather_extensions(blender_object, export_settings):
 def __gather_extras(blender_object, export_settings):
     return None
 
-def __gather_inverse_bind_matrices(blender_object, mesh_object, export_settings):
+def __gather_inverse_bind_matrices(blender_object, export_settings):
     axis_basis_change = mathutils.Matrix.Identity(4)
     if export_settings[gltf2_blender_export_keys.YUP]:
         axis_basis_change = mathutils.Matrix(
             ((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (0.0, -1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
 
-    # build the hierarchy of nodes out of the bones
-    root_bones = []
-    for blender_bone in blender_object.pose.bones:
-        if not blender_bone.parent:
-            root_bones.append(blender_bone)
+    if export_settings['gltf_def_bones'] is False:
+        # build the hierarchy of nodes out of the bones
+        root_bones = []
+        for blender_bone in blender_object.pose.bones:
+            if not blender_bone.parent:
+                root_bones.append(blender_bone)
+    else:
+        _, children_, root_bones = get_bone_tree(None, blender_object)
 
     matrices = []
 
     # traverse the matrices in the same order as the joints and compute the inverse bind matrix
     def __collect_matrices(bone):
-        matrix_world = gltf2_blender_math.multiply(blender_object.matrix_world, mesh_object.matrix_world.inverted())
         inverse_bind_matrix = gltf2_blender_math.multiply(
             axis_basis_change,
             gltf2_blender_math.multiply(
-                matrix_world,
+                blender_object.matrix_world,
                 bone.bone.matrix_local
             )
         ).inverted()
         matrices.append(inverse_bind_matrix)
 
-        for child in bone.children:
-            __collect_matrices(child)
+        if export_settings['gltf_def_bones'] is False:
+            for child in bone.children:
+                __collect_matrices(child)
+        else:
+            if bone.name in children_.keys():
+                for child in children_[bone.name]:
+                    __collect_matrices(blender_object.pose.bones[child])
 
     # start with the "root" bones and recurse into children, in the same ordering as the how joints are gathered
     for root_bone in root_bones:
@@ -116,18 +127,28 @@ def __gather_inverse_bind_matrices(blender_object, mesh_object, export_settings)
 
 def __gather_joints(blender_object, export_settings):
     root_joints = []
-    # build the hierarchy of nodes out of the bones
-    for blender_bone in blender_object.pose.bones:
-        if not blender_bone.parent:
-            root_joints.append(gltf2_blender_gather_joints.gather_joint(blender_bone, export_settings))
+    if export_settings['gltf_def_bones'] is False:
+        # build the hierarchy of nodes out of the bones
+        for blender_bone in blender_object.pose.bones:
+            if not blender_bone.parent:
+                root_joints.append(gltf2_blender_gather_joints.gather_joint(blender_bone, export_settings))
+    else:
+        _, children_, root_joints = get_bone_tree(None, blender_object)
+        root_joints = [gltf2_blender_gather_joints.gather_joint(i, export_settings) for i in root_joints]
 
     # joints is a flat list containing all nodes belonging to the skin
     joints = []
 
     def __collect_joints(node):
         joints.append(node)
-        for child in node.children:
-            __collect_joints(child)
+        if export_settings['gltf_def_bones'] is False:
+            for child in node.children:
+                __collect_joints(child)
+        else:
+            if node.name in children_.keys():
+                for child in children_[node.name]:
+                    __collect_joints(gltf2_blender_gather_joints.gather_joint(blender_object.pose.bones[child], export_settings))
+
     for joint in root_joints:
         __collect_joints(joint)
 
@@ -140,4 +161,31 @@ def __gather_name(blender_object, export_settings):
 
 def __gather_skeleton(blender_object, export_settings):
     # In the future support the result of https://github.com/KhronosGroup/glTF/pull/1195
-    return None  # gltf2_blender_gather_nodes.gather_node(blender_object, export_settings)
+    return None  # gltf2_blender_gather_nodes.gather_node(blender_object, blender_scene, export_settings)
+
+@cached
+def get_bone_tree(blender_dummy, blender_object):
+
+    bones = []
+    children = {}
+    root_bones = []
+
+    def get_parent(bone):
+        bones.append(bone.name)
+        if bone.parent is not None:
+            if bone.parent.name not in children.keys():
+                children[bone.parent.name] = []
+            children[bone.parent.name].append(bone.name)
+            get_parent(bone.parent)
+        else:
+            root_bones.append(bone.name)
+
+    for bone in [b for b in blender_object.data.bones if b.use_deform is True]:
+        get_parent(bone)
+
+    # remove duplicates
+    for k, v in children.items():
+        children[k] = list(set(v))
+    list_ = list(set(bones))
+    root_ = list(set(root_bones))
+    return [blender_object.data.bones[b] for b in list_], children, [blender_object.pose.bones[b] for b in root_]

@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,28 +18,76 @@ import typing
 from io_scene_gltf2.io.com import gltf2_io
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_animation_channels
 from io_scene_gltf2.io.com.gltf2_io_debug import print_console
+from ..com.gltf2_blender_extras import generate_extras
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
-def gather_animations(blender_object: bpy.types.Object, export_settings) -> typing.List[gltf2_io.Animation]:
+def gather_animations(blender_object: bpy.types.Object,
+                        tracks: typing.Dict[str, typing.List[int]],
+                        offset: int,
+                        export_settings) -> typing.Tuple[typing.List[gltf2_io.Animation], typing.Dict[str, typing.List[int]]]:
     """
-    Gather all animations which contribute to the objects property.
+    Gather all animations which contribute to the objects property, and corresponding track names
 
     :param blender_object: The blender object which is animated
     :param export_settings:
-    :return: A list of glTF2 animations
+    :return: A list of glTF2 animations and tracks
     """
     animations = []
 
     # Collect all 'actions' affecting this object. There is a direct mapping between blender actions and glTF animations
-    blender_actions = __get_blender_actions(blender_object)
+    blender_actions = __get_blender_actions(blender_object, export_settings)
+
+    # save the current active action of the object, if any
+    # We will restore it after export
+    current_action = None
+    if blender_object.animation_data and blender_object.animation_data.action:
+        current_action = blender_object.animation_data.action
 
     # Export all collected actions.
-    for blender_action in blender_actions:
+    for blender_action, track_name in blender_actions:
+
+        # Set action as active, to be able to bake if needed
+        if blender_action.id_root == "OBJECT" and blender_object.animation_data: # Not for shapekeys!
+            if blender_object.animation_data.action is None \
+                    or (blender_object.animation_data.action.name != blender_action.name):
+                if blender_object.animation_data.is_property_readonly('action'):
+                    # NLA stuff: some track are on readonly mode, we can't change action
+                    error = "Action is readonly. Please check NLA editor"
+                    print_console("WARNING", "Animation '{}' could not be exported. Cause: {}".format(blender_action.name, error))
+                    continue
+                try:
+                    blender_object.animation_data.action = blender_action
+                except:
+                    error = "Action is readonly. Please check NLA editor"
+                    print_console("WARNING", "Animation '{}' could not be exported. Cause: {}".format(blender_action.name, error))
+                    continue
+
+        # No need to set active shapekeys animations, this is needed for bone baking
+
         animation = __gather_animation(blender_action, blender_object, export_settings)
         if animation is not None:
             animations.append(animation)
 
-    return animations
+            # Store data for merging animation later
+            if track_name is not None: # Do not take into account animation not in NLA
+                # Do not take into account default NLA track names
+                if not (track_name.startswith("NlaTrack") or track_name.startswith("[Action Stash]")):
+                    if track_name not in tracks.keys():
+                        tracks[track_name] = []
+                    tracks[track_name].append(offset + len(animations)-1) # Store index of animation in animations
+
+    # Restore action status
+    if blender_object.animation_data:
+        if blender_object.animation_data.action is not None:
+            if current_action is None:
+                # remove last exported action
+                blender_object.animation_data.action = None
+            elif blender_object.animation_data.action.name != current_action.name:
+                # Restore action that was active at start of exporting
+                blender_object.animation_data.action = current_action
+
+    return animations, tracks
 
 
 def __gather_animation(blender_action: bpy.types.Action,
@@ -67,6 +115,8 @@ def __gather_animation(blender_action: bpy.types.Action,
 
     if not animation.channels:
         return None
+
+    export_user_extensions('gather_animation_hook', export_settings, animation, blender_action, blender_object)
 
     return animation
 
@@ -100,6 +150,9 @@ def __gather_extras(blender_action: bpy.types.Action,
                     blender_object: bpy.types.Object,
                     export_settings
                     ) -> typing.Any:
+
+    if export_settings['gltf_extras']:
+        return generate_extras(blender_action)
     return None
 
 
@@ -144,32 +197,51 @@ def __link_samplers(animation: gltf2_io.Animation, export_settings):
         animation.channels[i].sampler = __append_unique_and_get_index(animation.samplers, channel.sampler)
 
 
-def __get_blender_actions(blender_object: bpy.types.Object
-                          ) -> typing.List[bpy.types.Action]:
+def __get_blender_actions(blender_object: bpy.types.Object,
+                            export_settings
+                          ) -> typing.List[typing.Tuple[bpy.types.Action, str]]:
     blender_actions = []
+    blender_tracks = {}
 
     if blender_object.animation_data is not None:
         # Collect active action.
         if blender_object.animation_data.action is not None:
             blender_actions.append(blender_object.animation_data.action)
+            blender_tracks[blender_object.animation_data.action.name] = None
 
         # Collect associated strips from NLA tracks.
-        for track in blender_object.animation_data.nla_tracks:
-            # Multi-strip tracks do not export correctly yet (they need to be baked),
-            # so skip them for now and only write single-strip tracks.
-            if track.strips is None or len(track.strips) != 1:
-                continue
-            for strip in track.strips:
-                blender_actions.append(strip.action)
+        if export_settings['gltf_nla_strips'] is True:
+            for track in blender_object.animation_data.nla_tracks:
+                # Multi-strip tracks do not export correctly yet (they need to be baked),
+                # so skip them for now and only write single-strip tracks.
+                if track.strips is None or len(track.strips) != 1:
+                    continue
+                for strip in [strip for strip in track.strips if strip.action is not None]:
+                    blender_actions.append(strip.action)
+                    blender_tracks[strip.action.name] = track.name # Always set after possible active action -> None will be overwrite
 
     if blender_object.type == "MESH" \
             and blender_object.data is not None \
             and blender_object.data.shape_keys is not None \
-            and blender_object.data.shape_keys.animation_data is not None \
-            and blender_object.data.shape_keys.animation_data.action is not None:
-        blender_actions.append(blender_object.data.shape_keys.animation_data.action)
+            and blender_object.data.shape_keys.animation_data is not None:
+
+            if blender_object.data.shape_keys.animation_data.action is not None:
+                blender_actions.append(blender_object.data.shape_keys.animation_data.action)
+                blender_tracks[blender_object.data.shape_keys.animation_data.action.name] = None
+
+            if export_settings['gltf_nla_strips'] is True:
+                for track in blender_object.data.shape_keys.animation_data.nla_tracks:
+                    # Multi-strip tracks do not export correctly yet (they need to be baked),
+                    # so skip them for now and only write single-strip tracks.
+                    if track.strips is None or len(track.strips) != 1:
+                        continue
+                    for strip in track.strips:
+                        blender_actions.append(strip.action)
+                        blender_tracks[strip.action.name] = track.name # Always set after possible active action -> None will be overwrite
 
     # Remove duplicate actions.
     blender_actions = list(set(blender_actions))
+    # sort animations alphabetically (case insensitive) so they have a defined order and match Blender's Action list
+    blender_actions.sort(key = lambda a: a.name.lower())
 
-    return blender_actions
+    return [(blender_action, blender_tracks[blender_action.name]) for blender_action in blender_actions]

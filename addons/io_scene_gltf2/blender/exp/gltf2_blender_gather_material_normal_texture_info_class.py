@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_search_node_tree
 from io_scene_gltf2.blender.exp import gltf2_blender_export_keys
 from io_scene_gltf2.blender.exp import gltf2_blender_get
 from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 @cached
@@ -38,6 +39,14 @@ def gather_material_normal_texture_info_class(blender_shader_sockets_or_texture_
         tex_coord=__gather_tex_coord(blender_shader_sockets_or_texture_slots, export_settings)
     )
 
+    if texture_info.index is None:
+        return None
+
+    export_user_extensions('gather_material_normal_texture_info_class_hook',
+                           export_settings,
+                           texture_info,
+                           blender_shader_sockets_or_texture_slots)
+
     return texture_info
 
 
@@ -54,15 +63,13 @@ def __filter_texture_info(blender_shader_sockets_or_texture_slots, export_settin
 
 
 def __gather_extensions(blender_shader_sockets_or_texture_slots, export_settings):
-    normal_map_node = blender_shader_sockets_or_texture_slots[0].links[0].from_node
-    if not isinstance(normal_map_node, bpy.types.ShaderNodeNormalMap):
+    if not hasattr(blender_shader_sockets_or_texture_slots[0], 'links'):
         return None
 
-    texture_socket = normal_map_node.inputs["Color"]
-    if len(texture_socket.links) == 0:
+    tex_nodes = [__get_tex_from_socket(socket).shader_node for socket in blender_shader_sockets_or_texture_slots]
+    texture_node = tex_nodes[0] if (tex_nodes is not None and len(tex_nodes) > 0) else None
+    if texture_node is None:
         return None
-
-    texture_node = texture_socket.links[0].from_node
     texture_transform = gltf2_blender_get.get_texture_transform_from_texture_node(texture_node)
     if texture_transform is None:
         return None
@@ -137,5 +144,7 @@ def __get_tex_from_socket(socket):
         socket,
         gltf2_blender_search_node_tree.FilterByType(bpy.types.ShaderNodeTexImage))
     if not result:
+        return None
+    if result[0].shader_node.image is None:
         return None
     return result[0]

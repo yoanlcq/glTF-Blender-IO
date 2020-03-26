@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 import bpy
 from math import pi
+
+from ..com.gltf2_blender_extras import set_extras
 
 
 class BlenderLight():
@@ -47,6 +49,8 @@ class BlenderLight():
                 bpy.data.collections[gltf.blender_active_collection].objects.link(obj)
             else:
                 bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
+
+        set_extras(obj.data, pylight.get('extras'))
 
         return obj
 

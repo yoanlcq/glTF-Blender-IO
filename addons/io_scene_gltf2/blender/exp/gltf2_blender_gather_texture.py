@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_gather_sampler
 from io_scene_gltf2.blender.exp import gltf2_blender_search_node_tree
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_image
 from io_scene_gltf2.io.com import gltf2_io_debug
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 @cached
@@ -29,7 +30,7 @@ def gather_texture(
             typing.Tuple[bpy.types.NodeSocket], typing.Tuple[typing.Any]],
         export_settings):
     """
-    Gather texture sampling information and image channels from a blender shader textu  re attached to a shader socket.
+    Gather texture sampling information and image channels from a blender shader texture attached to a shader socket.
 
     :param blender_shader_sockets: The sockets of the material which should contribute to the texture
     :param export_settings: configuration of the export
@@ -47,9 +48,11 @@ def gather_texture(
         source=__gather_source(blender_shader_sockets_or_texture_slots, export_settings)
     )
 
-    # although valid, most viewers cant handle missing source properties
+    # although valid, most viewers can't handle missing source properties
     if texture.source is None:
         return None
+
+    export_user_extensions('gather_texture_hook', export_settings, texture, blender_shader_sockets_or_texture_slots)
 
     return texture
 

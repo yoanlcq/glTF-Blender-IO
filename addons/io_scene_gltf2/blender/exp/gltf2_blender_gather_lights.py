@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ import math
 from typing import Optional, List, Dict, Any
 
 from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
+from ..com.gltf2_blender_extras import generate_extras
 
 from io_scene_gltf2.io.com import gltf2_io_lights_punctual
 from io_scene_gltf2.io.com import gltf2_io_debug
@@ -66,7 +67,7 @@ def __gather_intensity(blender_lamp, _) -> Optional[float]:
         if blender_lamp.type != 'SUN':
             # When using cycles, the strength should be influenced by a LightFalloff node
             result = gltf2_blender_search_node_tree.from_socket(
-                emission_node.get("Strength"),
+                emission_node.inputs.get("Strength"),
                 gltf2_blender_search_node_tree.FilterByType(bpy.types.ShaderNodeLightFalloff)
             )
             if result:
@@ -98,8 +99,8 @@ def __gather_type(blender_lamp, _) -> str:
 
 
 def __gather_range(blender_lamp, export_settings) -> Optional[float]:
-    # TODO: calculate range from
-    # https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_lights_punctual#range-property
+    if blender_lamp.use_custom_distance:
+        return blender_lamp.cutoff_distance
     return None
 
 
@@ -112,13 +113,19 @@ def __gather_extensions(blender_lamp, export_settings) -> Optional[dict]:
 
 
 def __gather_extras(blender_lamp, export_settings) -> Optional[Any]:
+    if export_settings['gltf_extras']:
+        return generate_extras(blender_lamp)
     return None
 
 
 def __get_cycles_emission_node(blender_lamp) -> Optional[bpy.types.ShaderNodeEmission]:
     if blender_lamp.use_nodes and blender_lamp.node_tree:
         for currentNode in blender_lamp.node_tree.nodes:
-            if isinstance(currentNode, bpy.types.ShaderNodeOutputLamp):
+            if bpy.app.version < (2, 80, 0):
+                is_shadernode_output = isinstance(currentNode, bpy.types.ShaderNodeOutputLamp)
+            else:
+                is_shadernode_output = isinstance(currentNode, bpy.types.ShaderNodeOutputLight)
+            if is_shadernode_output:
                 if not currentNode.is_active_output:
                     continue
                 result = gltf2_blender_search_node_tree.from_socket(

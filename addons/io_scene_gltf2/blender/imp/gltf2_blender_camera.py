@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import bpy
+from ..com.gltf2_blender_extras import set_extras
 
 
 class BlenderCamera():
@@ -29,6 +30,7 @@ class BlenderCamera():
             pycamera.name = "Camera"
 
         cam = bpy.data.cameras.new(pycamera.name)
+        set_extras(cam, pycamera.extras)
 
         # Blender create a perspective camera by default
         if pycamera.type == "orthographic":

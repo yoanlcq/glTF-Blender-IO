@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_search_node_tree
 from io_scene_gltf2.blender.exp import gltf2_blender_get
 from io_scene_gltf2.io.com.gltf2_io_debug import print_console
 from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 @cached
@@ -40,6 +41,8 @@ def gather_texture_info(blender_shader_sockets_or_texture_slots: typing.Union[
     if texture_info.index is None:
         return None
 
+    export_user_extensions('gather_texture_info_hook', export_settings, texture_info, blender_shader_sockets_or_texture_slots)
+
     return texture_info
 
 
@@ -57,7 +60,7 @@ def __filter_texture_info(blender_shader_sockets_or_texture_slots, export_settin
         if any(any(a != b for a, b in zip(__get_tex_from_socket(elem).shader_node.image.size, resolution))
                for elem in blender_shader_sockets_or_texture_slots):
             def format_image(image_node):
-                return "{} ({}x{})".format(image_node.name, image_node.image.size[0], image_node.image.size[1])
+                return "{} ({}x{})".format(image_node.image.name, image_node.image.size[0], image_node.image.size[1])
 
             images = [format_image(__get_tex_from_socket(elem).shader_node) for elem in
                       blender_shader_sockets_or_texture_slots]
@@ -73,7 +76,10 @@ def __gather_extensions(blender_shader_sockets_or_texture_slots, export_settings
     if not hasattr(blender_shader_sockets_or_texture_slots[0], 'links'):
         return None
 
-    texture_node = blender_shader_sockets_or_texture_slots[0].links[0].from_node
+    tex_nodes = [__get_tex_from_socket(socket).shader_node for socket in blender_shader_sockets_or_texture_slots]
+    texture_node = tex_nodes[0] if (tex_nodes is not None and len(tex_nodes) > 0) else None
+    if texture_node is None:
+        return None
     texture_transform = gltf2_blender_get.get_texture_transform_from_texture_node(texture_node)
     if texture_transform is None:
         return None
@@ -134,5 +140,7 @@ def __get_tex_from_socket(socket):
         socket,
         gltf2_blender_search_node_tree.FilterByType(bpy.types.ShaderNodeTexImage))
     if not result:
+        return None
+    if result[0].shader_node.image is None:
         return None
     return result[0]

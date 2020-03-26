@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import bpy
+from ..com.gltf2_blender_extras import set_extras
 from .gltf2_blender_mesh import BlenderMesh
 from .gltf2_blender_camera import BlenderCamera
 from .gltf2_blender_skin import BlenderSkin
@@ -33,6 +34,10 @@ class BlenderNode():
         # Blender attributes initialization
         pynode.blender_object = ""
         pynode.parent = parent
+
+        gltf.display_current_node += 1
+        if bpy.app.debug_value == 101:
+            gltf.log.critical("Node " + str(gltf.display_current_node) + " of " + str(gltf.display_total_nodes) + " (idx " + str(node_idx) + ")")
 
         if pynode.mesh is not None:
 
@@ -72,6 +77,7 @@ class BlenderNode():
                     name = "Object_" + str(node_idx)
 
             obj = bpy.data.objects.new(name, mesh)
+            set_extras(obj, pynode.extras)
             obj.rotation_mode = 'QUATERNION'
             if bpy.app.version < (2, 80, 0):
                 bpy.data.scenes[gltf.blender_scene].objects.link(obj)
@@ -103,6 +109,7 @@ class BlenderNode():
             else:
                 gltf.log.info("Blender create Camera node")
             obj = BlenderCamera.create(gltf, pynode.camera)
+            set_extras(obj, pynode.extras)
             BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)  # TODO default rotation of cameras ?
             pynode.blender_object = obj.name
             BlenderNode.set_parent(gltf, obj, parent)
@@ -133,6 +140,7 @@ class BlenderNode():
         if pynode.extensions is not None:
             if 'KHR_lights_punctual' in pynode.extensions.keys():
                 obj = BlenderLight.create(gltf, pynode.extensions['KHR_lights_punctual']['light'])
+                set_extras(obj, pynode.extras)
                 obj.rotation_mode = 'QUATERNION'
                 BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent, correction=True)
                 pynode.blender_object = obj.name
@@ -153,6 +161,7 @@ class BlenderNode():
         else:
             gltf.log.info("Blender create Empty node")
             obj = bpy.data.objects.new("Node", None)
+        set_extras(obj, pynode.extras)
         obj.rotation_mode = 'QUATERNION'
         if bpy.app.version < (2, 80, 0):
             bpy.data.scenes[gltf.blender_scene].objects.link(obj)
@@ -196,11 +205,12 @@ class BlenderNode():
                         obj.select = True
                         bpy.data.objects[node.blender_armature_name].select = True
                         bpy.context.scene.objects.active = bpy.data.objects[node.blender_armature_name]
+                        bpy.context.scene.update()
                     else:
                         obj.select_set(True)
                         bpy.data.objects[node.blender_armature_name].select_set(True)
                         bpy.context.view_layer.objects.active = bpy.data.objects[node.blender_armature_name]
-                    bpy.context.scene.update()
+                        bpy.context.view_layer.update()
                     bpy.ops.object.parent_set(type='BONE_RELATIVE', keep_transform=True)
                     # From world transform to local (-armature transform -bone transform)
                     bone_trans = bpy.data.objects[node.blender_armature_name] \

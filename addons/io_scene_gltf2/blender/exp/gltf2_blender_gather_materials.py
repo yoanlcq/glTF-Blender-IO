@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ from io_scene_gltf2.blender.exp import gltf2_blender_gather_material_occlusion_t
 from io_scene_gltf2.blender.exp import gltf2_blender_search_node_tree
 
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_materials_pbr_metallic_roughness
-from io_scene_gltf2.blender.exp import gltf2_blender_generate_extras
+from ..com.gltf2_blender_extras import generate_extras
 from io_scene_gltf2.blender.exp import gltf2_blender_get
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 @cached
@@ -54,6 +55,8 @@ def gather_material(blender_material, mesh_double_sided, export_settings):
         occlusion_texture=__gather_occlusion_texture(blender_material, orm_texture, export_settings),
         pbr_metallic_roughness=__gather_pbr_metallic_roughness(blender_material, orm_texture, export_settings)
     )
+
+    export_user_extensions('gather_material_hook', export_settings, material, blender_material)
 
     return material
     # material = blender_primitive['material']
@@ -146,7 +149,7 @@ def __gather_extensions(blender_material, export_settings):
 
 def __gather_extras(blender_material, export_settings):
     if export_settings['gltf_extras']:
-        return gltf2_blender_generate_extras.generate_extras(blender_material)
+        return generate_extras(blender_material)
     return None
 
 
@@ -175,15 +178,28 @@ def __gather_orm_texture(blender_material, export_settings):
 
     metallic_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Metallic")
     roughness_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Roughness")
-    if metallic_socket is None or roughness_socket is None\
-            or not __has_image_node_from_socket(metallic_socket)\
-            or not __has_image_node_from_socket(roughness_socket):
+
+    hasMetal = metallic_socket is not None and __has_image_node_from_socket(metallic_socket)
+    hasRough = roughness_socket is not None and __has_image_node_from_socket(roughness_socket)
+
+    if not hasMetal and not hasRough:
         metallic_roughness = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "MetallicRoughness")
         if metallic_roughness is None or not __has_image_node_from_socket(metallic_roughness):
             return None
-        return (occlusion, metallic_roughness, metallic_roughness)
+        result = (occlusion, metallic_roughness)
+    elif not hasMetal:
+        result = (occlusion, roughness_socket)
+    elif not hasRough:
+        result = (occlusion, metallic_socket)
+    else:
+        result = (occlusion, roughness_socket, metallic_socket)
 
-    return (occlusion, roughness_socket, metallic_socket)
+    # Double-check this will past the filter in texture_info (otherwise there are different resolutions or other problems).
+    info = gltf2_blender_gather_texture_info.gather_texture_info(result, export_settings)
+    if info is None:
+        return None
+
+    return result
 
 def __gather_occlusion_texture(blender_material, orm_texture, export_settings):
     if orm_texture is not None:

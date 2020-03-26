@@ -1,3 +1,18 @@
+# Copyright 2018-2019 The glTF-Blender-IO authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 # This file generate code for >=2.80 version of blender
 # Without any check to version
 # That means:
@@ -156,7 +171,7 @@ for root, dirs, files in walk(INPUT):
                     else:
 
                         # check if contains a check on version
-                        if "bpy.app.version" in line:
+                        if "if bpy.app.version" in line:
                             # get indentation of the line
                             nb_spaces = len(line) - len(line.lstrip(' '))
                             erase_mode = True

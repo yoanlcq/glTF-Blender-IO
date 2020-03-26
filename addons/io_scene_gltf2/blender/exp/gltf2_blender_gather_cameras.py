@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 
 from . import gltf2_blender_export_keys
 from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
+from ..com.gltf2_blender_extras import generate_extras
 from io_scene_gltf2.io.com import gltf2_io
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 import bpy
 import math
@@ -25,7 +27,7 @@ def gather_camera(blender_camera, export_settings):
     if not __filter_camera(blender_camera, export_settings):
         return None
 
-    return gltf2_io.Camera(
+    camera = gltf2_io.Camera(
         extensions=__gather_extensions(blender_camera, export_settings),
         extras=__gather_extras(blender_camera, export_settings),
         name=__gather_name(blender_camera, export_settings),
@@ -33,6 +35,10 @@ def gather_camera(blender_camera, export_settings):
         perspective=__gather_perspective(blender_camera, export_settings),
         type=__gather_type(blender_camera, export_settings)
     )
+
+    export_user_extensions('gather_camera_hook', export_settings, camera, blender_camera)
+
+    return camera
 
 
 def __filter_camera(blender_camera, export_settings):
@@ -44,6 +50,8 @@ def __gather_extensions(blender_camera, export_settings):
 
 
 def __gather_extras(blender_camera, export_settings):
+    if export_settings['gltf_extras']:
+        return generate_extras(blender_camera)
     return None
 
 

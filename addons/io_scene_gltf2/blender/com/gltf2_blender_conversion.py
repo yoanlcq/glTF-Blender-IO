@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,3 +80,15 @@ def texture_transform_gltf_to_blender(texture_transform):
         'rotation': rotation,
         'scale': [scale[0], scale[1]],
     }
+
+def get_target(property):
+    return {
+        "delta_location": "translation",
+        "delta_rotation_euler": "rotation",
+        "location": "translation",
+        "rotation_axis_angle": "rotation",
+        "rotation_euler": "rotation",
+        "rotation_quaternion": "rotation",
+        "scale": "scale",
+        "value": "weights"
+    }.get(property)

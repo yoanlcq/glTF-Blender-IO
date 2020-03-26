@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import bpy
+
+from ..com.gltf2_blender_extras import set_extras
 from .gltf2_blender_pbrMetallicRoughness import BlenderPbr
 from .gltf2_blender_KHR_materials_pbrSpecularGlossiness import BlenderKHR_materials_pbrSpecularGlossiness
 from .gltf2_blender_KHR_materials_unlit import BlenderKHR_materials_unlit
@@ -48,6 +50,13 @@ class BlenderMaterial():
 
         mat = bpy.data.materials.new(name)
         pymaterial.blender_material[vertex_color] = mat.name
+
+        set_extras(mat, pymaterial.extras)
+
+        if bpy.app.version < (2, 80, 0):
+            pass # Blender 2.79 did not have a per-material double-sided flag.
+        else:
+            mat.use_backface_culling = (pymaterial.double_sided != True)
 
         ignore_map = False
 
@@ -96,19 +105,8 @@ class BlenderMaterial():
             if pymaterial.occlusion_texture is not None:
                 BlenderOcclusionMap.create(gltf, material_idx, vertex_color)
 
-            if pymaterial.alpha_mode is not None and pymaterial.alpha_mode != 'OPAQUE':
-                BlenderMaterial.blender_alpha(gltf, material_idx, vertex_color, pymaterial.alpha_mode)
-
-    @staticmethod
-    def set_uvmap(gltf, material_idx, prim, obj, vertex_color):
-        """Set UV Map."""
-        pymaterial = gltf.data.materials[material_idx]
-
-        node_tree = bpy.data.materials[pymaterial.blender_material[vertex_color]].node_tree
-        uvmap_nodes = [node for node in node_tree.nodes if node.type in ['UVMAP', 'NORMAL_MAP']]
-        for uvmap_node in uvmap_nodes:
-            if uvmap_node["gltf2_texcoord"] in prim.blender_texcoord.keys():
-                uvmap_node.uv_map = prim.blender_texcoord[uvmap_node["gltf2_texcoord"]]
+        if pymaterial.alpha_mode is not None and pymaterial.alpha_mode != 'OPAQUE':
+            BlenderMaterial.blender_alpha(gltf, material_idx, vertex_color, pymaterial.alpha_mode)
 
     @staticmethod
     def blender_alpha(gltf, material_idx, vertex_color, alpha_mode):
@@ -124,7 +122,7 @@ class BlenderMaterial():
                 material.blend_method = 'BLEND'
             elif alpha_mode == "MASK":
                 material.blend_method = 'CLIP'
-                alpha_cutoff = 1.0 - pymaterial.alpha_cutoff if pymaterial.alpha_cutoff is not None else 0.5
+                alpha_cutoff = pymaterial.alpha_cutoff if pymaterial.alpha_cutoff is not None else 0.5
                 material.alpha_threshold = alpha_cutoff
 
         node_tree = material.node_tree
@@ -176,6 +174,7 @@ class BlenderMaterial():
             mult = node_tree.nodes.new('ShaderNodeMath')
             mult.operation = 'MULTIPLY' if pymaterial.alpha_mode == 'BLEND' else 'GREATER_THAN'
             mult.location = 500, -250
+            # Note that `1.0 - pymaterial.alpha_cutoff` is used due to the invert node above.
             alpha_cutoff = 1.0 if pymaterial.alpha_mode == 'BLEND' else \
                 1.0 - pymaterial.alpha_cutoff if pymaterial.alpha_cutoff is not None else 0.5
             mult.inputs[1].default_value = alpha_cutoff

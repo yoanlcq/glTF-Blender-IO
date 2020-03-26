@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import bpy
-from .gltf2_blender_texture import BlenderTextureInfo
 from ...io.com.gltf2_io import MaterialPBRMetallicRoughness
 from .gltf2_blender_pbrMetallicRoughness import BlenderPbr
 
@@ -34,7 +33,6 @@ class BlenderKHR_materials_unlit():
         """Node tree creation."""
         material = bpy.data.materials[mat_name]
         material.use_nodes = True
-        node_tree = material.node_tree
 
         pymaterial = gltf.data.materials[material_index]
         if pymaterial.pbr_metallic_roughness is None:

@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 
 def get_output_node(node_tree):
-    """Retrive output node."""
+    """Retrieve output node."""
     output = [node for node in node_tree.nodes if node.type == 'OUTPUT_MATERIAL'][0]
     return output
 

@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import bpy
 from mathutils import Vector, Matrix
 from ..com.gltf2_blender_conversion import matrix_gltf_to_blender, scale_to_matrix
 from ...io.imp.gltf2_io_binary import BinaryData
-
+from ..com.gltf2_blender_extras import set_extras
 
 class BlenderSkin():
     """Blender Skinning / Armature."""
@@ -43,7 +43,7 @@ class BlenderSkin():
                 bpy.data.collections[gltf.blender_active_collection].objects.link(obj)
             else:
                 bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
-                
+
         pyskin.blender_armature_name = obj.name
         if parent is not None:
             obj.parent = bpy.data.objects[gltf.data.nodes[parent].blender_object]
@@ -104,17 +104,17 @@ class BlenderSkin():
                 obj.pose.bones[pynode.blender_bone_name].location = \
                     bind_rotation.inverted().to_matrix().to_4x4() @ final_location
 
-            # Do the same for rotation
+            # Do the same for rotation & scale
             if bpy.app.version < (2, 80, 0):
                 obj.pose.bones[pynode.blender_bone_name].rotation_quaternion = \
-                    (bind_rotation.
-                        to_matrix().to_4x4().inverted() * parent_mat * rotation.to_matrix().to_4x4()).to_quaternion()
+                    (pynode.blender_bone_matrix.inverted() * parent_mat *
+                        matrix_gltf_to_blender(pynode.transform)).to_quaternion()
                 obj.pose.bones[pynode.blender_bone_name].scale = \
                     (bind_scale.inverted() * parent_mat * scale_to_matrix(scale)).to_scale()
             else:
                 obj.pose.bones[pynode.blender_bone_name].rotation_quaternion = \
-                    (bind_rotation.to_matrix().to_4x4().inverted() @ parent_mat @
-                        rotation.to_matrix().to_4x4()).to_quaternion()
+                    (pynode.blender_bone_matrix.inverted() @ parent_mat @
+                        matrix_gltf_to_blender(pynode.transform)).to_quaternion()
                 obj.pose.bones[pynode.blender_bone_name].scale = \
                     (bind_scale.inverted() @ parent_mat @ scale_to_matrix(scale)).to_scale()
 
@@ -153,11 +153,16 @@ class BlenderSkin():
         bone = obj.data.edit_bones.new(name)
         pynode.blender_bone_name = bone.name
         pynode.blender_armature_name = pyskin.blender_armature_name
-        bone.tail = Vector((0.0, 1.0, 0.0))  # Needed to keep bone alive
+        bone.tail = Vector((0.0, 1.0 / obj.matrix_world.to_scale()[1], 0.0))  # Needed to keep bone alive
+        # Custom prop on edit bone
+        set_extras(bone, pynode.extras)
 
         # set bind and pose transforms
         BlenderSkin.set_bone_transforms(gltf, skin_id, bone, node_id, parent)
         bpy.ops.object.mode_set(mode="OBJECT")
+        # Custom prop on pose bone
+        if pynode.blender_bone_name in obj.pose.bones:
+            set_extras(obj.pose.bones[pynode.blender_bone_name], pynode.extras)
 
     @staticmethod
     def create_vertex_groups(gltf, skin_id):
@@ -167,68 +172,6 @@ class BlenderSkin():
             obj = bpy.data.objects[gltf.data.nodes[node_id].blender_object]
             for bone in pyskin.joints:
                 obj.vertex_groups.new(name=gltf.data.nodes[bone].blender_bone_name)
-
-    @staticmethod
-    def assign_vertex_groups(gltf, skin_id):
-        """Assign vertex groups to vertices."""
-        pyskin = gltf.data.skins[skin_id]
-        for node_id in pyskin.node_ids:
-            node = gltf.data.nodes[node_id]
-            obj = bpy.data.objects[node.blender_object]
-
-            offset = 0
-            for prim in gltf.data.meshes[node.mesh].primitives:
-                idx_already_done = {}
-
-                if 'JOINTS_0' in prim.attributes.keys() and 'WEIGHTS_0' in prim.attributes.keys():
-                    original_joint_ = BinaryData.get_data_from_accessor(gltf, prim.attributes['JOINTS_0'])
-                    original_weight_ = BinaryData.get_data_from_accessor(gltf, prim.attributes['WEIGHTS_0'])
-
-                    tmp_indices = {}
-                    tmp_idx = 0
-                    weight_ = []
-                    for i in prim.tmp_indices:
-                        if i[0] not in tmp_indices.keys():
-                            tmp_indices[i[0]] = tmp_idx
-                            tmp_idx += 1
-                            weight_.append(original_weight_[i[0]])
-
-                    tmp_indices = {}
-                    tmp_idx = 0
-                    joint_ = []
-                    for i in prim.tmp_indices:
-                        if i[0] not in tmp_indices.keys():
-                            tmp_indices[i[0]] = tmp_idx
-                            tmp_idx += 1
-                            joint_.append(original_joint_[i[0]])
-
-
-                    for poly in obj.data.polygons:
-                        for loop_idx in range(poly.loop_start, poly.loop_start + poly.loop_total):
-                            vert_idx = obj.data.loops[loop_idx].vertex_index
-
-                            if vert_idx in idx_already_done.keys():
-                                continue
-                            idx_already_done[vert_idx] = True
-
-                            if vert_idx in range(offset, offset + prim.vertices_length):
-
-                                tab_index = vert_idx - offset
-                                cpt = 0
-                                for joint_idx in joint_[tab_index]:
-                                    weight_val = weight_[tab_index][cpt]
-                                    if weight_val != 0.0:   # It can be a problem to assign weights of 0
-                                                            # for bone index 0, if there is always 4 indices in joint_
-                                                            # tuple
-                                        group = obj.vertex_groups[gltf.data.nodes[
-                                            pyskin.joints[joint_idx]
-                                        ].blender_bone_name]
-                                        group.add([vert_idx], weight_val, 'REPLACE')
-                                    cpt += 1
-                else:
-                    gltf.log.error("No Skinning ?????")  # TODO
-
-                offset = offset + prim.vertices_length
 
     @staticmethod
     def create_armature_modifiers(gltf, skin_id):
