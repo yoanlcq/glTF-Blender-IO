@@ -68,7 +68,7 @@ class GlTF2Exporter:
         )
 
         self.__buffer = gltf2_io_buffer.Buffer()
-        self.__images_to_save = {}
+        self.__images = {}
 
         # mapping of all glTFChildOfRootProperty types to their corresponding root level arrays
         self.__childOfRootPropertyTypeLookup = {
@@ -157,7 +157,7 @@ class GlTF2Exporter:
         if self.__images:
             os.makedirs(output_path, exist_ok=True)
 
-        for name, image in self.__images_to_save.items():
+        for name, image in self.__images.items():
             dst_path = output_path + "/" + name + image.file_extension
             with open(dst_path, 'wb') as f:
                 f.write(image.data)
@@ -219,12 +219,12 @@ class GlTF2Exporter:
     def __add_image(self, image: gltf2_io_image_data.ImageData):
         uri = image.filepath_uri()
         if uri is not None:
-            return uri # Don't add to the __images_to_save array
+            return uri # Don't add to the __images array
 
         name = image.adjusted_name()
         count = 1
-        regex = re.compile(r"\d+$")
-        while name in self.__images_to_save.keys():
+        regex = re.compile(r"-\d+$")
+        while name in self.__images.keys():
             regex_found = re.findall(regex, name)
             if regex_found:
                 name = re.sub(regex, "-" + str(count), name)
@@ -234,7 +234,7 @@ class GlTF2Exporter:
             count += 1
         # TODO: allow embedding of images (base64)
 
-        self.__images_to_save[name] = image
+        self.__images[name] = image
 
         texture_dir = self.export_settings[gltf2_blender_export_keys.TEXTURE_DIRECTORY]
         abs_path = os.path.join(texture_dir, name + image.file_extension)
