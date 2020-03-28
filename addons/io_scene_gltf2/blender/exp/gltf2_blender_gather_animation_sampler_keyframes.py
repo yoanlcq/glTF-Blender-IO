@@ -31,11 +31,15 @@ class Keyframe:
         self.frame = frame
         self.fps = bpy.context.scene.render.fps
         self.__length_morph = 0
+        self.__length_array = 0
+        self.channels = [c for c in channels if c is not None]
+
         # Note: channels has some None items only for SK if some SK are not animated
         if bake_channel is None:
-            self.target = [c for c in channels if c is not None][0].data_path.split('.')[-1]
+            self.target = self.channels[0].data_path.split('.')[-1]
             if self.target != "value":
                 self.__indices = [c.array_index for c in channels]
+                self.__length_array = len(channels)
             else:
                 self.__indices = [i for i, c in enumerate(channels) if c is not None]
                 self.__length_morph = len(channels)
@@ -64,6 +68,7 @@ class Keyframe:
         }.get(self.target)
 
         if length is None:
+            return self.__length_array # Assuming custom property
             raise RuntimeError("Animations with target type '{}' are not supported.".format(self.target))
 
         return length

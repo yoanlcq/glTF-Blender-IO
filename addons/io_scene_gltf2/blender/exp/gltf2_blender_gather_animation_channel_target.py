@@ -99,11 +99,15 @@ def __gather_path(channels: typing.Tuple[bpy.types.FCurve],
                   bake_bone: typing.Union[str, None],
                   bake_channel: typing.Union[str, None]
                   ) -> str:
+
+    data_path = None
     if bake_channel is None:
         # Note: channels has some None items only for SK if some SK are not animated
-        target = [c for c in channels if c is not None][0].data_path.split('.')[-1]
+        data_path = [c for c in channels if c is not None][0].data_path
+        target = data_path.split('.')[-1]
     else:
         target = bake_channel
+
     path = {
         "delta_location": "translation",
         "delta_rotation_euler": "rotation",
@@ -115,7 +119,10 @@ def __gather_path(channels: typing.Tuple[bpy.types.FCurve],
         "value": "weights"
     }.get(target)
 
-    if target is None:
+    if path is None:
+        if data_path is not None:
+            return "CUSTOM_PROPERTY:" + data_path # Assuming custom property
+
         raise RuntimeError("Cannot export an animation with {} target".format(target))
 
     return path

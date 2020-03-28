@@ -93,6 +93,7 @@ def swizzle_yup(v: typing.Union[Vector, Quaternion], data_path: str) -> typing.U
     }.get(target)
 
     if swizzle_func is None:
+        return v # Assume custom property
         raise RuntimeError("Cannot transform values at {}".format(data_path))
 
     return swizzle_func(v)
@@ -134,6 +135,7 @@ def transform(v: typing.Union[Vector, Quaternion], data_path: str, transform: Ma
     }.get(target)
 
     if transform_func is None:
+        return v # Assume custom property
         raise RuntimeError("Cannot transform values at {}".format(data_path))
 
     return transform_func(v, transform)
