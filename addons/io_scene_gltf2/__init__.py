@@ -78,7 +78,7 @@ class ExportGLTF2_Base:
 
     bl_options = {'UNDO', 'PRESET'}
 
-    export_format = EnumProperty(
+    export_format : EnumProperty(
         name='Format',
         items=(('GLB', 'glTF Binary (.glb)',
                 'Exports a single file, with all data packed in binary form. '
@@ -96,7 +96,7 @@ class ExportGLTF2_Base:
         default='GLB'
     )
 
-    ui_tab = EnumProperty(
+    ui_tab : EnumProperty(
         items=(('GENERAL', "General", "General settings"),
                ('MESHES', "Meshes", "Mesh settings"),
                ('OBJECTS', "Objects", "Object settings"),
@@ -105,13 +105,13 @@ class ExportGLTF2_Base:
         description="Export setting categories",
     )
 
-    export_copyright = StringProperty(
+    export_copyright : StringProperty(
         name='Copyright',
         description='Legal rights and conditions for the model',
         default=''
     )
 
-    export_image_format = EnumProperty(
+    export_image_format : EnumProperty(
         name='Images',
         items=(('NAME', 'Automatic',
                 'Determine the image format from the blender image name'),
@@ -127,7 +127,7 @@ class ExportGLTF2_Base:
         default='NAME'
     )
 
-    image_uri_handling = EnumProperty(
+    image_uri_handling : EnumProperty(
         name='Image URI handling',
         items=(('USE_NAME', 'Use texture name',
                 'Images will be copied to the output directory using their name'),
@@ -141,132 +141,132 @@ class ExportGLTF2_Base:
         default='USE_NAME'
     )
 
-    export_texture_dir = StringProperty(
+    export_texture_dir : StringProperty(
         name='Textures',
         description='Folder to place texture files in. Relative to the .gltf file',
         default='',
     )
 
-    export_texcoords = BoolProperty(
+    export_texcoords : BoolProperty(
         name='UVs',
         description='Export UVs (texture coordinates) with meshes',
         default=True
     )
 
-    export_normals = BoolProperty(
+    export_normals : BoolProperty(
         name='Normals',
         description='Export vertex normals with meshes',
         default=True
     )
 
-    export_draco_mesh_compression_enable = BoolProperty(
+    export_draco_mesh_compression_enable : BoolProperty(
         name='Draco mesh compression',
         description='Compress mesh using Draco',
         default=False
     )
 
-    export_draco_mesh_compression_level = IntProperty(
+    export_draco_mesh_compression_level : IntProperty(
         name='Compression level',
-        description='Compression level (0 = most speed, 6 = most compression, higher values currently not supported)',
+        description='Compression level (0 : most speed, 6 : most compression, higher values currently not supported)',
         default=6,
         min=0,
         max=6
     )
 
-    export_draco_position_quantization = IntProperty(
+    export_draco_position_quantization : IntProperty(
         name='Position quantization bits',
-        description='Quantization bits for position values (0 = no quantization)',
+        description='Quantization bits for position values (0 : no quantization)',
         default=14,
         min=0,
         max=30
     )
 
-    export_draco_normal_quantization = IntProperty(
+    export_draco_normal_quantization : IntProperty(
         name='Normal quantization bits',
-        description='Quantization bits for normal values (0 = no quantization)',
+        description='Quantization bits for normal values (0 : no quantization)',
         default=10,
         min=0,
         max=30
     )
 
-    export_draco_texcoord_quantization = IntProperty(
+    export_draco_texcoord_quantization : IntProperty(
         name='Texcoord quantization bits',
-        description='Quantization bits for texture coordinate values (0 = no quantization)',
+        description='Quantization bits for texture coordinate values (0 : no quantization)',
         default=12,
         min=0,
         max=30
     )
 
-    export_draco_generic_quantization = IntProperty(
+    export_draco_generic_quantization : IntProperty(
         name='Generic quantization bits',
-        description='Quantization bits for generic coordinate values like weights or joints (0 = no quantization)',
+        description='Quantization bits for generic coordinate values like weights or joints (0 : no quantization)',
         default=12,
         min=0,
         max=30
     )
 
-    export_tangents = BoolProperty(
+    export_tangents : BoolProperty(
         name='Tangents',
         description='Export vertex tangents with meshes',
         default=False
     )
 
-    export_materials = BoolProperty(
+    export_materials : BoolProperty(
         name='Materials',
         description='Export materials',
         default=True
     )
 
-    export_colors = BoolProperty(
+    export_colors : BoolProperty(
         name='Vertex Colors',
         description='Export vertex colors with meshes',
         default=True
     )
 
-    export_cameras = BoolProperty(
+    export_cameras : BoolProperty(
         name='Cameras',
         description='Export cameras',
         default=False
     )
 
-    export_selected = BoolProperty(
+    export_selected : BoolProperty(
         name='Selected Objects',
         description='Export selected objects only',
         default=False
     )
 
-    export_extras = BoolProperty(
+    export_extras : BoolProperty(
         name='Custom Properties',
         description='Export custom properties as glTF extras',
         default=False
     )
 
-    export_yup = BoolProperty(
+    export_yup : BoolProperty(
         name='+Y Up',
         description='Export using glTF convention, +Y up',
         default=True
     )
 
-    export_apply = BoolProperty(
+    export_apply : BoolProperty(
         name='Apply Modifiers',
         description='Apply modifiers (excluding Armatures) to mesh objects -'
                     'WARNING: prevents exporting shape keys',
         default=False
     )
 
-    export_animations = BoolProperty(
+    export_animations : BoolProperty(
         name='Animations',
         description='Exports active actions and NLA tracks as glTF animations',
         default=True
     )
 
-    export_frame_range = BoolProperty(
+    export_frame_range : BoolProperty(
         name='Limit to Playback Range',
         description='Clips animations to selected playback range',
         default=True
     )
 
-    export_frame_step = IntProperty(
+    export_frame_step : IntProperty(
         name='Sampling Rate',
         description='How often to evaluate animated values (in frames)',
         default=1,
@@ -274,75 +274,75 @@ class ExportGLTF2_Base:
         max=120
     )
 
-    export_force_sampling = BoolProperty(
+    export_force_sampling : BoolProperty(
         name='Always Sample Animations',
         description='Apply sampling to all animations',
         default=True
     )
 
-    export_nla_strips = BoolProperty(
+    export_nla_strips : BoolProperty(
         name='NLA Strips',
         description='Export NLA Strip animations',
         default=True
     )
 
-    export_def_bones = BoolProperty(
+    export_def_bones : BoolProperty(
         name='Export Deformation bones only',
         description='Export Deformation bones only (and needed bones for hierarchy)',
         default=False
     )
 
-    export_current_frame = BoolProperty(
+    export_current_frame : BoolProperty(
         name='Use Current Frame',
         description='Export the scene in the current animation frame',
         default=False
     )
 
-    export_skins = BoolProperty(
+    export_skins : BoolProperty(
         name='Skinning',
         description='Export skinning (armature) data',
         default=True
     )
 
-    export_all_influences = BoolProperty(
+    export_all_influences : BoolProperty(
         name='Include All Bone Influences',
         description='Allow >4 joint vertex influences. Models may appear incorrectly in many viewers',
         default=False
     )
 
-    export_morph = BoolProperty(
+    export_morph : BoolProperty(
         name='Shape Keys',
         description='Export shape keys (morph targets)',
         default=True
     )
 
-    export_morph_normal = BoolProperty(
+    export_morph_normal : BoolProperty(
         name='Shape Key Normals',
         description='Export vertex normals with shape keys (morph targets)',
         default=True
     )
 
-    export_morph_tangent = BoolProperty(
+    export_morph_tangent : BoolProperty(
         name='Shape Key Tangents',
         description='Export vertex tangents with shape keys (morph targets)',
         default=False
     )
 
-    export_lights = BoolProperty(
+    export_lights : BoolProperty(
         name='Punctual Lights',
         description='Export directional, point, and spot lights. '
                     'Uses "KHR_lights_punctual" glTF extension',
         default=False
     )
 
-    export_displacement = BoolProperty(
+    export_displacement : BoolProperty(
         name='Displacement Textures (EXPERIMENTAL)',
         description='EXPERIMENTAL: Export displacement textures. '
                     'Uses incomplete "KHR_materials_displacement" glTF extension',
         default=False
     )
 
-    will_save_settings = BoolProperty(
+    will_save_settings : BoolProperty(
         name='Remember Export Settings',
         description='Store glTF export settings in the Blender project',
         default=False)
@@ -892,7 +892,7 @@ class ExportGLTF2(bpy.types.Operator, ExportGLTF2_Base, ExportHelper):
 
     filename_ext = ''
 
-    filter_glob = StringProperty(default='*.glb;*.gltf', options={'HIDDEN'})
+    filter_glob : StringProperty(default='*.glb;*.gltf', options={'HIDDEN'})
 
 
 def menu_func_export(self, context):
@@ -904,24 +904,24 @@ class ImportGLTF2(Operator, ImportHelper):
     bl_idname = 'import_scene.gltf'
     bl_label = 'Import glTF 2.0'
 
-    filter_glob = StringProperty(default="*.glb;*.gltf", options={'HIDDEN'})
+    filter_glob : StringProperty(default="*.glb;*.gltf", options={'HIDDEN'})
 
-    files = CollectionProperty(
+    files : CollectionProperty(
         name="File Path",
         type=bpy.types.OperatorFileListElement,
     )
 
-    loglevel = IntProperty(
+    loglevel : IntProperty(
         name='Log Level',
         description="Log Level")
 
-    import_pack_images = BoolProperty(
+    import_pack_images : BoolProperty(
         name='Pack images',
         description='Pack all images into .blend file',
         default=True
     )
 
-    import_shading = EnumProperty(
+    import_shading : EnumProperty(
         name="Shading",
         items=(("NORMALS", "Use Normal Data", ""),
                ("FLAT", "Flat Shading", ""),
