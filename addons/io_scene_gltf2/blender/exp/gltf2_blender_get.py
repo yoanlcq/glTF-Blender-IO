@@ -43,13 +43,13 @@ def get_object_from_datapath(blender_object, data_path: str):
     return prop
 
 
-def get_socket_or_texture_slot(blender_material: bpy.types.Material, name: str):
+def get_socket(blender_material: bpy.types.Material, name: str):
     """
-    For a given material input name, retrieve the corresponding node tree socket or blender render texture slot.
+    For a given material input name, retrieve the corresponding node tree socket.
 
-    :param blender_material: a blender material for which to get the socket/slot
-    :param name: the name of the socket/slot
-    :return: either a blender NodeSocket, if the material is a node tree or a blender Texture otherwise
+    :param blender_material: a blender material for which to get the socket
+    :param name: the name of the socket
+    :return: a blender NodeSocket
     """
     if blender_material.node_tree and blender_material.use_nodes:
         #i = [input for input in blender_material.node_tree.inputs]
@@ -75,36 +75,17 @@ def get_socket_or_texture_slot(blender_material: bpy.types.Material, name: str):
         inputs = sum([[input for input in node.inputs if input.name == name] for node in nodes], [])
         if inputs:
             return inputs[0]
-    else:
-        if bpy.app.version < (2, 80, 0):
-            if name != 'Base Color':
-                return None
-
-            gltf2_io_debug.print_console("WARNING", "You are using texture slots, which are deprecated. In future versions"
-                                                    "of the glTF exporter they will not be supported any more")
-
-            for blender_texture_slot in blender_material.texture_slots:
-                if blender_texture_slot and blender_texture_slot.texture and \
-                        blender_texture_slot.texture.type == 'IMAGE' and \
-                        blender_texture_slot.texture.image is not None:
-                    #
-                    # Base color texture
-                    #
-                    if blender_texture_slot.use_map_color_diffuse:
-                        return blender_texture_slot
-        else:
-            pass
 
     return None
 
 
-def get_socket_or_texture_slot_old(blender_material: bpy.types.Material, name: str):
+def get_socket_old(blender_material: bpy.types.Material, name: str):
     """
     For a given material input name, retrieve the corresponding node tree socket in the special glTF node group.
 
-    :param blender_material: a blender material for which to get the socket/slot
-    :param name: the name of the socket/slot
-    :return: either a blender NodeSocket, if the material is a node tree or a blender Texture otherwise
+    :param blender_material: a blender material for which to get the socket
+    :param name: the name of the socket
+    :return: a blender NodeSocket
     """
     gltf_node_group_name = get_gltf_node_name().lower()
     if blender_material.node_tree and blender_material.use_nodes:
@@ -158,10 +139,7 @@ def get_texture_transform_from_texture_node(texture_node):
         return None
 
 
-    if bpy.app.version < (2, 81, 8):
-        rotation_0, rotation_1 = mapping_node.rotation[0], mapping_node.rotation[1]
-    else:
-        rotation_0, rotation_1 = mapping_node.inputs['Rotation'].default_value[0], mapping_node.inputs['Rotation'].default_value[1]
+    rotation_0, rotation_1 = mapping_node.inputs['Rotation'].default_value[0], mapping_node.inputs['Rotation'].default_value[1]
     if  rotation_0 or rotation_1:
         # TODO: can we handle this?
         gltf2_io_debug.print_console("WARNING",
@@ -171,14 +149,9 @@ def get_texture_transform_from_texture_node(texture_node):
         return None
 
     mapping_transform = {}
-    if bpy.app.version < (2, 81, 8):
-        mapping_transform["offset"] = [mapping_node.translation[0], mapping_node.translation[1]]
-        mapping_transform["rotation"] = mapping_node.rotation[2]
-        mapping_transform["scale"] = [mapping_node.scale[0], mapping_node.scale[1]]
-    else:
-        mapping_transform["offset"] = [mapping_node.inputs['Location'].default_value[0], mapping_node.inputs['Location'].default_value[1]]
-        mapping_transform["rotation"] = mapping_node.inputs['Rotation'].default_value[2]
-        mapping_transform["scale"] = [mapping_node.inputs['Scale'].default_value[0], mapping_node.inputs['Scale'].default_value[1]]
+    mapping_transform["offset"] = [mapping_node.inputs['Location'].default_value[0], mapping_node.inputs['Location'].default_value[1]]
+    mapping_transform["rotation"] = mapping_node.inputs['Rotation'].default_value[2]
+    mapping_transform["scale"] = [mapping_node.inputs['Scale'].default_value[0], mapping_node.inputs['Scale'].default_value[1]]
 
     if mapping_node.vector_type == "TEXTURE":
         # This means use the inverse of the TRS transform.
@@ -194,10 +167,7 @@ def get_texture_transform_from_texture_node(texture_node):
             if abs(scale[0]) < 1e-5 or abs(scale[1]) < 1e-5:
                 return None
 
-            if bpy.app.version < (2, 80, 0):
-                new_offset = Matrix.Rotation(-rotation, 3, 'Z') * Vector((-offset[0], -offset[1], 1))
-            else:
-                new_offset = Matrix.Rotation(-rotation, 3, 'Z') @ Vector((-offset[0], -offset[1], 1))
+            new_offset = Matrix.Rotation(-rotation, 3, 'Z') @ Vector((-offset[0], -offset[1], 1))
             new_offset[0] /= scale[0]; new_offset[1] /= scale[1]
             return {
                 "offset": new_offset[0:2],

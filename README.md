@@ -11,17 +11,24 @@ Documentation
 | 2.80    | https://docs.blender.org/manual/en/2.80/addons/io_scene_gltf2.html |
 | 2.81    | https://docs.blender.org/manual/en/2.81/addons/import_export/io_scene_gltf2.html |
 | 2.82    | https://docs.blender.org/manual/en/2.82/addons/import_export/scene_gltf2.html  |
+| 2.83    | https://docs.blender.org/manual/en/2.83/addons/import_export/scene_gltf2.html  |
 | dev     | https://docs.blender.org/manual/en/dev/addons/import_export/scene_gltf2.html  |
 
 Notes:
-* 2.80 - 2.81 are previous stable releases.
-* 2.82 is the current stable release. Check the `blender-v2.82-release` branch.
-* master branch of this addon is mirrored in [Blender Addons master](https://developer.blender.org/diffusion/BA/browse/master/io_scene_gltf2/), that will become 2.83.
+* 2.80 - 2.82 are previous stable releases.
+* 2.83 is the current stable release. Check the `blender-v2.83-release` branch.
+* master branch of this addon is mirrored in [Blender Addons master](https://developer.blender.org/diffusion/BA/browse/master/io_scene_gltf2/), that will become 2.90.
+
+### Legacy 2.79 Support
+
+The final version of this addon with legacy support for Blender 2.79 is available on the [2.79 Release Page](https://github.com/KhronosGroup/glTF-Blender-IO/releases/tag/2.79).
+
+Blender 2.80 and higher bundle this addon in the main Blender install package, so no 3rd-party install is required.
 
 Credits
 -------
 
-Developed by [UX3D](https://www.ux3d.io/) and [Julien Duroure](http://julienduroure.com/), with support from the [Khronos Group](https://www.khronos.org/), [Mozilla](https://www.mozilla.org/), and [Airbus Defense & Space](https://www.airbus.com/space.html).
+Developed by [UX3D](https://www.ux3d.io/), Scurest and [Julien Duroure](http://julienduroure.com/), with support from the [Khronos Group](https://www.khronos.org/), [Mozilla](https://www.mozilla.org/), and [Airbus Defense & Space](https://www.airbus.com/space.html).
 
 Introduction
 ------------
@@ -35,7 +42,7 @@ The shared codebase is organized into common (Blender-independent) and Blender-s
 ![Packages](docs/packages.png)  
 Package organisation  
 
-This structure allows easier Blender 2.79 to 2.80 updates, and enables common code to be reused by third-party Python packages working with the glTF 2.0 format.
+This structure allows common code to be reused by third-party Python packages working with the glTF 2.0 format.
 
 ![Process](docs/io_process.png)  
 Import & export process
@@ -70,8 +77,8 @@ These quality-assurance checks improve the reliability of Blender glTF I/O.
 Running the Tests Locally
 -------------------------
 
-To run the tests locally, your system should be modified to include `blender279b` and `blender28` as shell scripts (or Windows `.bat` files) in the path that launch their respective versions of Blender, including all command-line arguments.
+To run the tests locally, your system should have a `blender` executable in the path that launches the desired version of Blender.
 
 The latest version of [Yarn](https://yarnpkg.com/en/) should also be installed.
 
-Then, in the `tests` folder of this repository, run `yarn install`, followed by `yarn run test`.  You can limit the test suite to one version of Blender with `yarn run test-blender279b` or `yarn run test-blender28`.
+Then, in the `tests` folder of this repository, run `yarn install`, followed by `yarn run test`.

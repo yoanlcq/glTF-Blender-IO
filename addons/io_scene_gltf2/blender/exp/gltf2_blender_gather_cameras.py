@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import gltf2_blender_export_keys
 from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
 from ..com.gltf2_blender_extras import generate_extras
 from io_scene_gltf2.io.com import gltf2_io
@@ -93,18 +92,18 @@ def __gather_perspective(blender_camera, export_settings):
 
         width = bpy.context.scene.render.pixel_aspect_x * bpy.context.scene.render.resolution_x
         height = bpy.context.scene.render.pixel_aspect_y * bpy.context.scene.render.resolution_y
-        perspective.aspectRatio = width / height
+        perspective.aspect_ratio = width / height
 
         if width >= height:
             if blender_camera.sensor_fit != 'VERTICAL':
-                perspective.yfov = 2.0 * math.atan(math.tan(blender_camera.angle * 0.5) / perspective.aspectRatio)
+                perspective.yfov = 2.0 * math.atan(math.tan(blender_camera.angle * 0.5) / perspective.aspect_ratio)
             else:
                 perspective.yfov = blender_camera.angle
         else:
             if blender_camera.sensor_fit != 'HORIZONTAL':
                 perspective.yfov = blender_camera.angle
             else:
-                perspective.yfov = 2.0 * math.atan(math.tan(blender_camera.angle * 0.5) / perspective.aspectRatio)
+                perspective.yfov = 2.0 * math.atan(math.tan(blender_camera.angle * 0.5) / perspective.aspect_ratio)
 
         perspective.znear = blender_camera.clip_start
         perspective.zfar = blender_camera.clip_end

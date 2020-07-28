@@ -20,7 +20,6 @@ from io_scene_gltf2.io.exp import gltf2_io_binary_data
 from io_scene_gltf2.io.com import gltf2_io_constants
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_accessors
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_joints
-from io_scene_gltf2.blender.com import gltf2_blender_math
 from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
@@ -85,10 +84,10 @@ def __gather_inverse_bind_matrices(blender_object, export_settings):
 
     # traverse the matrices in the same order as the joints and compute the inverse bind matrix
     def __collect_matrices(bone):
-        inverse_bind_matrix = gltf2_blender_math.multiply(
-            axis_basis_change,
-            gltf2_blender_math.multiply(
-                blender_object.matrix_world,
+        inverse_bind_matrix = (
+            axis_basis_change @
+            (
+                blender_object.matrix_world @
                 bone.bone.matrix_local
             )
         ).inverted()
@@ -131,10 +130,10 @@ def __gather_joints(blender_object, export_settings):
         # build the hierarchy of nodes out of the bones
         for blender_bone in blender_object.pose.bones:
             if not blender_bone.parent:
-                root_joints.append(gltf2_blender_gather_joints.gather_joint(blender_bone, export_settings))
+                root_joints.append(gltf2_blender_gather_joints.gather_joint(blender_object, blender_bone, export_settings))
     else:
         _, children_, root_joints = get_bone_tree(None, blender_object)
-        root_joints = [gltf2_blender_gather_joints.gather_joint(i, export_settings) for i in root_joints]
+        root_joints = [gltf2_blender_gather_joints.gather_joint(blender_object, i, export_settings) for i in root_joints]
 
     # joints is a flat list containing all nodes belonging to the skin
     joints = []
@@ -147,7 +146,7 @@ def __gather_joints(blender_object, export_settings):
         else:
             if node.name in children_.keys():
                 for child in children_[node.name]:
-                    __collect_joints(gltf2_blender_gather_joints.gather_joint(blender_object.pose.bones[child], export_settings))
+                    __collect_joints(gltf2_blender_gather_joints.gather_joint(blender_object, blender_object.pose.bones[child], export_settings))
 
     for joint in root_joints:
         __collect_joints(joint)

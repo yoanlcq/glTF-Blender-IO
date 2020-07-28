@@ -271,19 +271,19 @@ def __gather_interpolation(channels: typing.Tuple[bpy.types.FCurve],
             # If only single keyframe revert to STEP
             if max_keyframes < 2:
                 return 'STEP'
-            else:
-                blender_keyframe = [c for c in channels if c is not None][0].keyframe_points[0]
 
-                # For sampled animations: CONSTANT are STEP, other are LINEAR
-                return {
-                    "BEZIER": "LINEAR",
-                    "LINEAR": "LINEAR",
-                    "CONSTANT": "STEP"
-                }[blender_keyframe.interpolation]
+            # If all keyframes are CONSTANT, we can use STEP.
+            if all(all(k.interpolation == 'CONSTANT' for k in c.keyframe_points) for c in channels if c is not None):
+                return 'STEP'
 
+            # Otherwise, sampled keyframes use LINEAR interpolation.
+            return 'LINEAR'
+
+    # Non-sampled keyframes implies that all keys are of the same type, and that the
+    # type is supported by glTF (because we checked in needs_baking).
     blender_keyframe = [c for c in channels if c is not None][0].keyframe_points[0]
 
-    # Select the interpolation method. Any unsupported method will fallback to STEP
+    # Select the interpolation method.
     return {
         "BEZIER": "CUBICSPLINE",
         "LINEAR": "LINEAR",
@@ -343,10 +343,12 @@ def __gather_output(channels: typing.Tuple[bpy.types.FCurve],
                          (0.0, 0.0, 1.0, 0.0),
                          (0.0, -1.0, 0.0, 0.0),
                          (0.0, 0.0, 0.0, 1.0)))
-                correction_matrix_local = gltf2_blender_math.multiply(axis_basis_change, bone.bone.matrix_local)
+                correction_matrix_local = axis_basis_change @ bone.bone.matrix_local
             else:
-                correction_matrix_local = gltf2_blender_math.multiply(
-                    bone.parent.bone.matrix_local.inverted(), bone.bone.matrix_local)
+                correction_matrix_local = (
+                    bone.parent.bone.matrix_local.inverted() @
+                    bone.bone.matrix_local
+                )
 
             transform = correction_matrix_local
         else:
