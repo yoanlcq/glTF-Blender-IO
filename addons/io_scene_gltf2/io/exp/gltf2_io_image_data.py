@@ -26,6 +26,12 @@ class ImageData:
         self._name = name
         self._filepath = filepath
         self._uri_handling = uri_handling
+        print("---- New ImageData ----")
+        print("- name         : {}".format(name))
+        print("- adjusted_name: {}".format(self.adjusted_name()))
+        print("- filepath     : {}".format(filepath))
+        print("- filepath_uri : {}".format(self.filepath_uri() or "None"))
+        print("---- End ImageData ----")
 
     def __eq__(self, other):
         return self._data == other.data
